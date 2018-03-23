@@ -11,7 +11,7 @@
 	
 //(PC0) = UserCtrl Input 	= &hadc1
 //(PC1) = Pendulum Input 	= &hadc2
-//(PA8) = PWM Output 			= &tim1
+//(PA8) = PWM Output 		= &tim1
 
 ADC_HandleTypeDef hadc1;
 ADC_HandleTypeDef hadc2;
@@ -29,7 +29,7 @@ float ts = 0.0001; 		//time step in seconds
 float P = 800; 
 float I = 1;
 float D = 0.005;
-int tol = 10;					//error tolerance in [mV]
+int tol = 10;			//error tolerance in [mV]
 
 float Integrate, Ppart, Ipart, Dpart;
 int PIDpart = 0;
@@ -47,11 +47,11 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);		//possibly remove, we initia
  int main(void){
 
   HAL_Init();
-  SystemClock_Config();						  //Configure the system clock
+  SystemClock_Config();				//Configure the system clock
 	
 	//Initialize parameters 
-	pDuty = &pulseValue;							//pDuty points to PWM pulse value
-	duty = 0.75;											//Initialize duty 
+	pDuty = &pulseValue;			//pDuty points to PWM pulse value
+	duty = 0.75;				//Initialize duty 
 	pulseValue = periodValue*0.50;		//Initialize pulse value
 	
 	Integrate = 0.0; 
@@ -75,57 +75,63 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);		//possibly remove, we initia
 	
   while(1){
 				
-		//Configure and Start both ADC channels
-		HAL_ADC_ConfigChannel(&hadc1, &sConfig);
-		HAL_ADC_Start(&hadc1);
+	//Configure and Start both ADC channels
+	HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+	HAL_ADC_Start(&hadc1);
 		
-		HAL_ADC_ConfigChannel(&hadc2, &sConfig);
-		HAL_ADC_Start(&hadc2);
+	HAL_ADC_ConfigChannel(&hadc2, &sConfig);
+	HAL_ADC_Start(&hadc2);
 		
-		//Read from both ADC channels
-		if(HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK){		
-			Vreference = HAL_ADC_GetValue(&hadc1);			//Voltage read from User Potentiometer [mV]
+	//Read from both ADC channels
+	if(HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK){		
+		Vreference = HAL_ADC_GetValue(&hadc1);			//Voltage read from User Potentiometer [mV]
 			
-			if(HAL_ADC_PollForConversion(&hadc2, 100) == HAL_OK){	
-				Vsystem = HAL_ADC_GetValue(&hadc2);				//Voltage read from Pendulum Potentiometer [mV]
+		if(HAL_ADC_PollForConversion(&hadc2, 100) == HAL_OK){	
+			Vsystem = HAL_ADC_GetValue(&hadc2);			//Voltage read from Pendulum Potentiometer [mV]
 				
-				err = (int)(Vreference - Vsystem);				//Error defined as the difference between Voltage measurements of Potentiometers
+			err = (int)(Vreference - Vsystem);			//Error defined as the difference between Voltage measurements of Potentiometers
 				
+			if(err < tol){ 
+				LED_On(num);
+			}else{ 
+				LED_Off(num);
+			     }	//Turn on LED if error is less than tolerance	
 				
-				if(err < tol){ LED_On(num);}else{ LED_Off(num);}					//Turn on LED if error is less than tolerance
+			//Nonlinear steady state mapping.
+			duty = (float) (0.07*sin(0.0015*Vreference - 0.8936) + 0.37);
 				
-				
-				//Nonlinear steady state mapping.
-				duty = (float) (0.07*sin(0.0015*Vreference - 0.8936) + 0.37);
-				
-				y = (int)(periodValue*duty);							//Write steady-state response pulse value to PWM Register
+			y = (int)(periodValue*duty);							//Write steady-state response pulse value to PWM Register
 	
-				//PID Control Begin
-	
-					
-					Ipart = Integrate*I;
-					if (abs(err) < tol ){Integrate = Integrate;}		//Deals with Integral Windup
-					else {Integrate = Integrate + (((err + errOld)*0.5)*ts);}
-					Ppart = P*(sin(0.0015*err - 0.8936));			//Nonlinear proportional component, follows steady-state function
+			//PID Control Begin
+			
+			Ipart = Integrate*I;
+			if (abs(err) < tol ){
+				Integrate = Integrate;
+			}		//Deals with Integral Windup
+			else {
+				Integrate = Integrate + (((err + errOld)*0.5)*ts);
+			}
+			Ppart = P*(sin(0.0015*err - 0.8936));			//Nonlinear proportional component, follows steady-state function
 				
-					Dpart = D*((err - errOld)/ts);
+			Dpart = D*((err - errOld)/ts);
 				
-					PIDpart = (int)(Ipart + Ppart + Dpart);
+			PIDpart = (int)(Ipart + Ppart + Dpart);
 				
-					y = y + (PIDpart);												//Output includes Steady-State and PID components
+			y = y + (PIDpart);												//Output includes Steady-State and PID components
 				
-					if(y > (0.64*(periodValue))){y = (int) (0.64*(periodValue));}
-				
-					errOld = err;
-				//PID END
+			if(y > (0.64*(periodValue))){
+				y = (int) (0.64*(periodValue));
+			}	
+			errOld = err;
+			//PID END
 
-				*pDuty = y;							
+			*pDuty = y;							
 	
-				//Update PWM
-				sConfigOC.OCMode = TIM_OCMODE_PWM1;	
-				sConfigOC.Pulse = pulseValue;
-				HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1);
-				HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+			//Update PWM
+			sConfigOC.OCMode = TIM_OCMODE_PWM1;	
+			sConfigOC.Pulse = pulseValue;
+			HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1);
+			HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
 			}
 		}
 	}	
