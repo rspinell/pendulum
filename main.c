@@ -44,26 +44,26 @@ static void MX_ADC2_Init(void);
 static void MX_TIM1_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);		//possibly remove, we initialize below main
- int main(void){
+int main(void){
 
-  HAL_Init();
-  SystemClock_Config();				//Configure the system clock
-	
-	//Initialize parameters 
-	pDuty = &pulseValue;			//pDuty points to PWM pulse value
-	duty = 0.75;				//Initialize duty 
-	pulseValue = periodValue*0.50;		//Initialize pulse value
-	
-	Integrate = 0.0; 
-	Ppart = 0.0;
-	Ipart = 0.0;
-	Dpart = 0.0;
+HAL_Init();
+SystemClock_Config();				//Configure the system clock
 
-  //Initialize all configured peripherals
-  MX_GPIO_Init();
-  MX_ADC1_Init();
-  MX_ADC2_Init();
-  MX_TIM1_Init();
+//Initialize parameters 
+pDuty = &pulseValue;			//pDuty points to PWM pulse value
+duty = 0.75;				//Initialize duty 
+pulseValue = periodValue*0.50;		//Initialize pulse value
+	
+Integrate = 0.0; 
+Ppart = 0.0;
+Ipart = 0.0;
+Dpart = 0.0;
+
+//Initialize all configured peripherals
+MX_GPIO_Init();
+MX_ADC1_Init();
+MX_ADC2_Init();
+MX_TIM1_Init();
 	LED_Initialize();	
 
 	//PWM Generation Error
